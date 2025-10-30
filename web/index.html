@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskScheduler Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .status-light {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        .status-green { background-color: #28a745; }
+        .status-orange { background-color: #ffc107; }
+        .status-red { background-color: #dc3545; }
+        .status-gray { background-color: #6c757d; }
+        .status-blue { background-color: #007bff; }
+        
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .refresh-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .progress-text {
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+        
+        .progress-hover {
+            cursor: help;
+            border-bottom: 1px dotted #6c757d;
+        }
+        
+        .progress-hover:hover {
+            border-bottom-color: #007bff;
+        }
+        
+        .last-run {
+            font-size: 0.875rem;
+        }
+        
+        .task-group-card {
+            transition: box-shadow 0.2s ease-in-out;
+        }
+        
+        .task-group-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .group-header {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .running-indicator {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container-fluid py-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1 class="h2 mb-0">
+                        <i class="fas fa-tasks text-primary"></i>
+                        TaskScheduler Dashboard
+                    </h1>
+                    <div>
+                        <button class="btn btn-outline-primary me-2" onclick="refreshData()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                        <a href="/errors" class="btn btn-outline-danger">
+                            <i class="fas fa-exclamation-triangle"></i> View Errors
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-heartbeat"></i> System Status
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row" id="systemStatus">
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <div class="h4 mb-1" id="schedulerStatus">
+                                        <span class="status-light status-gray"></span>
+                                        Loading...
+                                    </div>
+                                    <small class="text-muted">Scheduler Status</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <div class="h4 mb-1" id="runningTasks">0</div>
+                                    <small class="text-muted">Running Tasks</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <div class="h4 mb-1" id="runningGroups">0</div>
+                                    <small class="text-muted">Running Groups</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <div class="h4 mb-1" id="lastUpdate">--</div>
+                                    <small class="text-muted">Last Update</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Task Summary -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-list"></i> Task Groups & Tasks
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="taskGroupsContainer">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let refreshInterval;
+
+        function getStatusLight(task) {
+            // If task is currently running, show blue
+            if (task.isRunning) {
+                return '<span class="status-light status-blue"></span>';
+            }
+            
+            // If task has never run, show gray
+            if (!task.lastEndTime || task.lastStatus === 'never_run') {
+                return '<span class="status-light status-gray"></span>';
+            }
+            
+            // Calculate time differences
+            const now = new Date();
+            const lastRunTime = new Date(task.lastEndTime);
+            const timeSinceLastRun = (now.getTime() - lastRunTime.getTime()) / (1000 * 60 * 60); // hours
+            
+            // Red: Last run is older than errorHours
+            if (timeSinceLastRun > task.errorHours) {
+                return '<span class="status-light status-red"></span>';
+            }
+            
+            // Orange: Last run is older than warningHours but newer than errorHours
+            if (timeSinceLastRun > task.warningHours) {
+                return '<span class="status-light status-orange"></span>';
+            }
+            
+            // Green: Everything else (within warningHours)
+            return '<span class="status-light status-green"></span>';
+        }
+
+        function formatDateTime(dateString) {
+            if (!dateString) return '--';
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+
+        function truncateText(text, maxLength = 50) {
+            if (!text) return '--';
+            return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+        }
+
+        function createTooltipText(text, maxLength = 70) {
+            if (!text) return { display: '--', needsTooltip: false, fullText: '' };
+            const needsTooltip = text.length > maxLength;
+            const display = needsTooltip ? text.substring(0, maxLength) + '...' : text;
+            return { display, needsTooltip, fullText: text };
+        }
+
+        async function loadSystemStatus() {
+            try {
+                const response = await fetch('/task-scheduler/api/status');
+                const status = await response.json();
+                
+                document.getElementById('schedulerStatus').innerHTML = 
+                    (status.isRunning ? '<span class="status-light status-green"></span>Running' : 
+                     '<span class="status-light status-red"></span>Stopped');
+                
+                document.getElementById('runningTasks').textContent = status.runningTasks.length;
+                document.getElementById('runningGroups').textContent = status.runningTaskGroups.length;
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+                
+            } catch (error) {
+                console.error('Failed to load system status:', error);
+                document.getElementById('schedulerStatus').innerHTML = 
+                    '<span class="status-light status-red"></span>Error';
+            }
+        }
+
+        async function loadTaskSummary() {
+            try {
+                const response = await fetch('/task-scheduler/api/task-summary');
+                const taskGroups = await response.json();
+                
+                // Debug: Log the task data to see what we're getting
+                console.log('Task Groups Data:', taskGroups);
+                taskGroups.forEach(group => {
+                    group.tasks.forEach(task => {
+                        if (task.isRunning) {
+                            console.log(`Running Task: ${task.taskName}`, {
+                                currentProgress: task.currentProgress,
+                                currentPercentage: task.currentPercentage,
+                                currentStatus: task.currentStatus,
+                                isRunning: task.isRunning
+                            });
+                        }
+                    });
+                });
+                
+                const container = document.getElementById('taskGroupsContainer');
+                
+                if (taskGroups.length === 0) {
+                    container.innerHTML = '<div class="text-center text-muted">No task groups found</div>';
+                    return;
+                }
+                
+                container.innerHTML = taskGroups.map(group => `
+                    <div class="card mb-3 task-group-card">
+                        <div class="card-header group-header">
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <h6 class="mb-1 text-dark">
+                                        <i class="fas fa-layer-group text-primary"></i>
+                                        <strong>${group.groupName}</strong>
+                                        ${group.isGroupRunning ? '<span class="badge bg-warning ms-2 running-indicator">Running</span>' : ''}
+                                    </h6>
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock"></i> Schedule: <code>${group.cronExpression}</code> | 
+                                        <i class="fas fa-calendar-alt"></i> Next Run: <strong>${formatDateTime(group.nextRunTime)}</strong>
+                                    </small>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <button class="btn btn-primary btn-sm" onclick="runTaskGroup('${group.groupName}')" 
+                                            ${group.isGroupRunning ? 'disabled' : ''}>
+                                        <i class="fas fa-play"></i> 
+                                        ${group.isGroupRunning ? 'Running...' : 'Run Group'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th width="5%">Status</th>
+                                            <th width="18%">Task Name</th>
+                                            <th width="10%">Last Completed</th>
+                                            <th width="10%">Last Start</th>
+                                            <th width="19%">Last Summary</th>
+                                            <th width="28%">Current Progress</th>
+                                            <th width="10%">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${group.tasks.map(task => `
+                                            <tr>
+                                                <td>${getStatusLight(task)}</td>
+                                                <td><strong>${task.taskName}</strong></td>
+                                                <td class="last-run small">${formatDateTime(task.lastEndTime)}</td>
+                                                <td class="last-run small">${formatDateTime(task.lastStartTime)}</td>
+                                                <td>
+                                                    <small>${truncateText(task.lastSummary, 40)}</small>
+                                                    ${task.lastParams && task.lastParams !== '{}' ? 
+                                                        `<br><small class="text-muted"><i class="fas fa-cog"></i> ${(() => {
+                                                            try {
+                                                                const params = JSON.parse(task.lastParams);
+                                                                const paramText = Object.keys(params).length > 0 ? 
+                                                                    Object.entries(params).map(([k,v]) => `${k}: ${v}`).join(', ') : 
+                                                                    'No params';
+                                                                const paramInfo = createTooltipText(paramText, 30);
+                                                                return paramInfo.needsTooltip ? 
+                                                                    `<span class="progress-hover" data-bs-toggle="tooltip" data-bs-placement="top" title="${paramInfo.fullText.replace(/"/g, '&quot;')}">${paramInfo.display}</span>` :
+                                                                    paramInfo.display;
+                                                            } catch(e) {
+                                                                return task.lastParams;
+                                                            }
+                                                        })()}</small>` : 
+                                                        ''
+                                                    }
+                                                </td>
+                                                <td>
+                                                    ${task.isRunning ? 
+                                                        `<div class="progress-text small">
+                                                            <span class="badge bg-primary">
+                                                                ${task.currentStatus || 'Running'}
+                                                            </span><br>
+                                                            ${(() => {
+                                                                const progressInfo = createTooltipText(task.currentProgress || 'Processing...', 70);
+                                                                return progressInfo.needsTooltip ? 
+                                                                    `<strong class="progress-hover" data-bs-toggle="tooltip" data-bs-placement="top" title="${progressInfo.fullText.replace(/"/g, '&quot;')}">${progressInfo.display}</strong>` :
+                                                                    `<strong>${progressInfo.display}</strong>`;
+                                                            })()}
+                                                            ${task.currentPercentage ? `
+                                                                <div class="progress mt-1" style="height: 4px;">
+                                                                    <div class="progress-bar bg-info" style="width: ${task.currentPercentage}%"></div>
+                                                                </div>
+                                                                <span class="text-muted">${task.currentPercentage}%</span>
+                                                            ` : ''}
+                                                            ${task.currentParams && task.currentParams !== '{}' ? 
+                                                                `<br><small class="text-info"><i class="fas fa-cog"></i> ${(() => {
+                                                                    try {
+                                                                        const params = JSON.parse(task.currentParams);
+                                                                        const paramText = Object.keys(params).length > 0 ? 
+                                                                            Object.entries(params).map(([k,v]) => `${k}: ${v}`).join(', ') : 
+                                                                            'No params';
+                                                                        const paramInfo = createTooltipText(paramText, 25);
+                                                                        return paramInfo.needsTooltip ? 
+                                                                            `<span class="progress-hover" data-bs-toggle="tooltip" data-bs-placement="top" title="${paramInfo.fullText.replace(/"/g, '&quot;')}">${paramInfo.display}</span>` :
+                                                                            paramInfo.display;
+                                                                    } catch(e) {
+                                                                        return task.currentParams;
+                                                                    }
+                                                                })()}</small>` : 
+                                                                ''
+                                                            }
+                                                            ${task.currentError ? `<br><span class="text-danger small">${truncateText(task.currentError, 30)}</span>` : ''}
+                                                        </div>` : 
+                                                        `${(() => {
+                                                            const recentInfo = createTooltipText(task.recentProgress || '--', 50);
+                                                            return recentInfo.needsTooltip ? 
+                                                                `<span class="text-muted small progress-hover" data-bs-toggle="tooltip" data-bs-placement="top" title="${recentInfo.fullText.replace(/"/g, '&quot;')}">${recentInfo.display}</span>` :
+                                                                `<span class="text-muted small">${recentInfo.display}</span>`;
+                                                        })()}`
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-success btn-sm" onclick="runSingleTask('${group.groupName}', '${task.taskName}')" 
+                                                            ${task.isRunning || group.isGroupRunning ? 'disabled' : ''}>
+                                                        <i class="fas fa-play"></i>
+                                                        ${task.isRunning ? 'Running' : 'Run Task'}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                // Dispose of any existing tooltips before creating new ones
+                const existingTooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+                existingTooltips.forEach(element => {
+                    const existingTooltip = bootstrap.Tooltip.getInstance(element);
+                    if (existingTooltip) {
+                        existingTooltip.dispose();
+                    }
+                });
+                
+                // Initialize Bootstrap tooltips
+                const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                tooltipTriggerList.map(function (tooltipTriggerEl) {
+                    return new bootstrap.Tooltip(tooltipTriggerEl, {
+                        trigger: 'hover focus',
+                        delay: { show: 500, hide: 100 }
+                    });
+                });
+                
+            } catch (error) {
+                console.error('Failed to load task summary:', error);
+                document.getElementById('taskGroupsContainer').innerHTML = 
+                    '<div class="alert alert-danger">Failed to load task summary</div>';
+            }
+        }
+
+        async function runSingleTask(groupName, taskName) {
+            // Use SweetAlert2 for confirmation
+            const result = await Swal.fire({
+                title: 'Run Single Task',
+                text: `Are you sure you want to run task "${taskName}" from group "${groupName}" now?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, run it!',
+                cancelButtonText: 'Cancel'
+            });
+
+            if (!result.isConfirmed) return;
+            
+            console.log(`Attempting to run single task: ${taskName} from group: ${groupName}`);
+            
+            // Show loading alert
+            Swal.fire({
+                title: 'Starting Task',
+                text: `Initiating task "${taskName}"...`,
+                icon: 'info',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            try {
+                const encodedGroupName = encodeURIComponent(groupName);
+                const encodedTaskName = encodeURIComponent(taskName);
+                const url = `/task-scheduler/api/run-task/${encodedGroupName}/${encodedTaskName}`;
+                console.log(`Making request to: ${url}`);
+                
+                const response = await fetch(url, {
+                    method: 'POST'
+                });
+                
+                console.log(`Response status: ${response.status}`);
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Success:', result);
+                    
+                    // Success message
+                    await Swal.fire({
+                        title: 'Success!',
+                        text: `Task "${taskName}" started successfully!`,
+                        icon: 'success',
+                        confirmButtonColor: '#28a745',
+                        timer: 3000,
+                        timerProgressBar: true
+                    });
+                    
+                    refreshData();
+                } else {
+                    const error = await response.json();
+                    console.error('Error response:', error);
+                    
+                    // Error message
+                    await Swal.fire({
+                        title: 'Error!',
+                        text: `Failed to start task: ${error.error}`,
+                        icon: 'error',
+                        confirmButtonColor: '#dc3545'
+                    });
+                }
+            } catch (error) {
+                console.error('Request failed:', error);
+                
+                // Network error message
+                await Swal.fire({
+                    title: 'Network Error!',
+                    text: `Failed to start task: ${error.message}`,
+                    icon: 'error',
+                    confirmButtonColor: '#dc3545'
+                });
+            }
+        }
+
+        async function runTaskGroup(groupName) {
+            // Use SweetAlert2 for confirmation
+            const result = await Swal.fire({
+                title: 'Run Task Group',
+                text: `Are you sure you want to run task group "${groupName}" now?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, run it!',
+                cancelButtonText: 'Cancel'
+            });
+
+            if (!result.isConfirmed) return;
+            
+            console.log(`Attempting to run task group: ${groupName}`);
+            
+            // Show loading alert
+            Swal.fire({
+                title: 'Starting Task Group',
+                text: `Initiating task group "${groupName}"...`,
+                icon: 'info',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            try {
+                const encodedGroupName = encodeURIComponent(groupName);
+                const url = `/task-scheduler/api/run-group/${encodedGroupName}`;
+                console.log(`Making request to: ${url}`);
+                
+                const response = await fetch(url, {
+                    method: 'POST'
+                });
+                
+                console.log(`Response status: ${response.status}`);
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Success:', result);
+                    
+                    // Success message
+                    await Swal.fire({
+                        title: 'Success!',
+                        text: `Task group "${groupName}" started successfully!`,
+                        icon: 'success',
+                        confirmButtonColor: '#28a745',
+                        timer: 3000,
+                        timerProgressBar: true
+                    });
+                    
+                    refreshData();
+                } else {
+                    const error = await response.json();
+                    console.error('Error response:', error);
+                    
+                    // Error message
+                    await Swal.fire({
+                        title: 'Error!',
+                        text: `Failed to start task group: ${error.error}`,
+                        icon: 'error',
+                        confirmButtonColor: '#dc3545'
+                    });
+                }
+            } catch (error) {
+                console.error('Request failed:', error);
+                
+                // Network error message
+                await Swal.fire({
+                    title: 'Network Error!',
+                    text: `Failed to start task group: ${error.message}`,
+                    icon: 'error',
+                    confirmButtonColor: '#dc3545'
+                });
+            }
+        }
+
+        function refreshData() {
+            loadSystemStatus();
+            loadTaskSummary();
+        }
+
+        function startAutoRefresh() {
+            refreshInterval = setInterval(refreshData, 5000); // Refresh every 5 seconds
+        }
+
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshData();
+            startAutoRefresh();
+        });
+
+        // Stop auto-refresh when page is hidden
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                stopAutoRefresh();
+            } else {
+                startAutoRefresh();
+            }
+        });
+    </script>
+</body>
+</html>

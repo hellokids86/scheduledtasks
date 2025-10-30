@@ -1,0 +1,45 @@
+{
+  "name": "shopifygraphql",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "npx ts-node src/server.ts",
+    "dev": "npx ts-node --watch src/server.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/mssql": "^9.1.5",
+    "@types/node": "^22.9.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "@shopify/shopify-api": "^11.6.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/form-data": "^2.2.1",
+    "@types/node-cron": "^3.0.11",
+    "@types/node-fetch": "^2.6.13",
+    "@types/uuid": "^10.0.0",
+    "axios": "^1.11.0",
+    "better-sqlite3": "^12.2.0",
+    "croner": "^9.1.0",
+    "csv-writer": "^1.6.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "form-data": "^4.0.4",
+    "mongodb": "^6.19.0",
+    "msnodesqlv8": "^4.2.1",
+    "mssql": "^11.0.1",
+    "node-cron": "^4.2.1",
+    "node-fetch": "^3.3.2",
+    "pdfkit": "^0.15.1",
+    "punycode": "^2.3.1",
+    "queue-typescript": "^1.0.1",
+    "uuid": "^12.0.0",
+    "xlsx": "^0.18.5"
+  }
+}

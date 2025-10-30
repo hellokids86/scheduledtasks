@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskSchedulerV2 - Errors</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .card-header {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+        }
+        
+        .error-card {
+            border-left: 4px solid #dc3545;
+        }
+        
+        .error-message {
+            background-color: #f8f9fa;
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+        }
+        
+        .time-filter {
+            max-width: 200px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container-fluid py-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1 class="h2 mb-0">
+                        <i class="fas fa-exclamation-triangle text-danger"></i>
+                        Error Dashboard
+                    </h1>
+                    <div class="d-flex gap-2">
+                        <select class="form-select time-filter" id="timeFilter" onchange="refreshErrors()">
+                            <option value="1">Last 1 hour</option>
+                            <option value="6">Last 6 hours</option>
+                            <option value="24" selected>Last 24 hours</option>
+                            <option value="72">Last 3 days</option>
+                            <option value="168">Last week</option>
+                        </select>
+                        <button class="btn btn-outline-primary" onclick="refreshErrors()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                        <a href="/" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Statistics -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-chart-bar"></i> Error Statistics
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row" id="errorStats">
+                            <div class="col-md-4">
+                                <div class="text-center">
+                                    <div class="h3 mb-1 text-danger" id="totalErrors">0</div>
+                                    <small class="text-muted">Total Errors</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center">
+                                    <div class="h3 mb-1 text-warning" id="uniqueTasks">0</div>
+                                    <small class="text-muted">Affected Tasks</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center">
+                                    <div class="h3 mb-1 text-info" id="uniqueGroups">0</div>
+                                    <small class="text-muted">Affected Groups</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error List -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-list"></i> Error Details
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="errorContainer">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function formatDateTime(dateString) {
+            if (!dateString) return '--';
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+
+        function formatDuration(startTime, endTime) {
+            if (!startTime || !endTime) return '--';
+            const start = new Date(startTime);
+            const end = new Date(endTime);
+            const duration = (end.getTime() - start.getTime()) / 1000;
+            
+            if (duration < 60) {
+                return `${Math.round(duration)}s`;
+            } else if (duration < 3600) {
+                return `${Math.round(duration / 60)}m`;
+            } else {
+                return `${Math.round(duration / 3600)}h`;
+            }
+        }
+
+        function getRelativeTime(dateString) {
+            if (!dateString) return '--';
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now.getTime() - date.getTime();
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffMins = Math.floor(diffMs / (1000 * 60));
+            
+            if (diffMins < 60) {
+                return `${diffMins}m ago`;
+            } else if (diffHours < 24) {
+                return `${diffHours}h ago`;
+            } else {
+                const diffDays = Math.floor(diffHours / 24);
+                return `${diffDays}d ago`;
+            }
+        }
+
+        async function loadErrors() {
+            try {
+                const hours = document.getElementById('timeFilter').value;
+                const response = await fetch(`/task-scheduler/api/errors?hours=${hours}`);
+                const errors = await response.json();
+                
+                updateErrorStats(errors);
+                renderErrors(errors);
+                
+            } catch (error) {
+                console.error('Failed to load errors:', error);
+                document.getElementById('errorContainer').innerHTML = 
+                    '<div class="alert alert-danger">Failed to load error data</div>';
+            }
+        }
+
+        function updateErrorStats(errors) {
+            const totalErrors = errors.length;
+            const uniqueTasks = new Set(errors.map(e => e.taskName)).size;
+            const uniqueGroups = new Set(errors.map(e => e.groupName)).size;
+            
+            document.getElementById('totalErrors').textContent = totalErrors;
+            document.getElementById('uniqueTasks').textContent = uniqueTasks;
+            document.getElementById('uniqueGroups').textContent = uniqueGroups;
+        }
+
+        function renderErrors(errors) {
+            const container = document.getElementById('errorContainer');
+            
+            if (errors.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
+                        <h4 class="mt-3 text-success">No Errors Found!</h4>
+                        <p class="text-muted">All tasks are running smoothly in the selected time period.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = errors.map((error, index) => `
+                <div class="card error-card mb-3">
+                    <div class="card-header bg-light">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="mb-0 text-danger">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    ${error.taskName}
+                                </h6>
+                                <small class="text-muted">
+                                    <i class="fas fa-layer-group"></i> ${error.groupName} | 
+                                    <i class="fas fa-clock"></i> ${getRelativeTime(error.startTime)}
+                                </small>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <span class="badge bg-danger">${error.status.toUpperCase()}</span>
+                                <small class="text-muted d-block">
+                                    Duration: ${formatDuration(error.startTime, error.endTime)}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                <strong>Error Message:</strong>
+                                <div class="error-message mt-2">
+                                    ${error.message || 'No error message available'}
+                                </div>
+                                
+                                ${error.stackTrace ? `
+                                <div class="mt-3">
+                                    <strong>Stack Trace:</strong>
+                                    <div class="error-message mt-2" style="max-height: 200px; overflow-y: auto;">
+                                        ${error.stackTrace}
+                                    </div>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <strong>Task Summary:</strong>
+                                <div class="error-message mt-2">
+                                    ${error.summary || 'No summary available'}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        <strong>Started:</strong> ${formatDateTime(error.startTime)}<br>
+                                        <strong>Failed:</strong> ${formatDateTime(error.endTime)}<br>
+                                        <strong>Task Group ID:</strong> ${error.taskGroupId}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-outline-primary" onclick="copyErrorDetails(${index})">
+                                <i class="fas fa-copy"></i> Copy Details
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="showRawError(${index})">
+                                <i class="fas fa-code"></i> Raw Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Store errors globally for copy functionality
+            window.errorData = errors;
+        }
+
+        function copyErrorDetails(index) {
+            const error = window.errorData[index];
+            const details = `
+Task: ${error.taskName}
+Group: ${error.groupName}
+Status: ${error.status}
+Started: ${formatDateTime(error.startTime)}
+Failed: ${formatDateTime(error.endTime)}
+Error: ${error.message || 'N/A'}
+Summary: ${error.summary || 'N/A'}
+Task Group ID: ${error.taskGroupId}
+${error.stackTrace ? `
+Stack Trace:
+${error.stackTrace}` : ''}
+            `.trim();
+            
+            navigator.clipboard.writeText(details).then(() => {
+                // Show temporary success message
+                const btn = event.target.closest('button');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                btn.classList.add('btn-success');
+                btn.classList.remove('btn-outline-primary');
+                
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-outline-primary');
+                }, 2000);
+            });
+        }
+
+        function showRawError(index) {
+            const error = window.errorData[index];
+            const modal = new bootstrap.Modal(document.getElementById('rawDataModal') || createRawDataModal());
+            document.getElementById('rawDataContent').textContent = JSON.stringify(error, null, 2);
+            modal.show();
+        }
+
+        function createRawDataModal() {
+            const modalHtml = `
+                <div class="modal fade" id="rawDataModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Raw Error Data</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <pre id="rawDataContent" class="bg-light p-3"></pre>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            return document.getElementById('rawDataModal');
+        }
+
+        function refreshErrors() {
+            loadErrors();
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadErrors();
+            
+            // Auto-refresh every 30 seconds
+            setInterval(loadErrors, 30000);
+        });
+    </script>
+</body>
+</html>
