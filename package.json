@@ -1,15 +1,38 @@
 {
-  "name": "shopifygraphql",
+  "name": "scheduledtasks",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "A TypeScript-based task scheduler with web dashboard and monitoring",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*",
+    "web/**/*",
+    "data/example_task_config.json",
+    "README.md"
+  ],
   "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
     "start": "npx ts-node src/server.ts",
-    "dev": "npx ts-node --watch src/server.ts"
+    "dev": "npx ts-node --watch src/server.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": [
+    "typescript",
+    "scheduler",
+    "cron",
+    "tasks",
+    "dashboard",
+    "monitoring",
+    "automation"
+  ],
+  "author": "hellokids86",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hellokids86/scheduledtasks.git"
+  },
+  "homepage": "https://github.com/hellokids86/scheduledtasks#readme",
   "devDependencies": {
     "@types/express": "^5.0.3",
     "@types/mssql": "^9.1.5",

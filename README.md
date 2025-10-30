@@ -12,21 +12,24 @@ This project runs scheduled task groups (cron-based) that execute TypeScript tas
 - REST API endpoints for status, task summary, errors and manual execution
 - Simple configuration via a JSON file (see `data/example_task_config.json`)
 
-## Quick start
+## Installation
 
-1. Install dependencies
+### As a standalone application
+
+1. Clone this repository
+2. Install dependencies
 
 ```powershell
 npm install
 ```
 
-2. Copy the example config to `data/task_config.json` and adjust it to your needs:
+3. Copy the example config to `data/task_config.json` and adjust it to your needs:
 
 ```powershell
 copy data\example_task_config.json data\task_config.json
 ```
 
-3. Start the server (uses `ts-node` to run TypeScript in-place):
+4. Start the server (uses `ts-node` to run TypeScript in-place):
 
 ```powershell
 npm start
@@ -43,6 +46,48 @@ npm run dev
 ```
 
 There are also existing `scheduler` scripts in `package.json` (if present) which run `TaskScheduler-start.ts`.
+
+### As a Node.js module
+
+You can also install this as a dependency in another Node.js project:
+
+```bash
+npm install scheduledtasks
+```
+
+Then use it in your project:
+
+```typescript
+import { TaskScheduler, MonitoredScheduledTask, TaskStatus } from 'scheduledtasks';
+import express from 'express';
+
+// Create a custom task
+class MyCustomTask extends MonitoredScheduledTask {
+  protected async execute(): Promise<void> {
+    this.updateProgress('Starting my task...', 0);
+    // Do your work here
+    await this.doSomeWork();
+    this.updateProgress('Task completed!', 100);
+    this.setSummary('Successfully processed data');
+  }
+
+  private async doSomeWork(): Promise<void> {
+    // Your task logic here
+  }
+}
+
+// Set up the scheduler
+const scheduler = new TaskScheduler('path/to/your/task_config.json');
+scheduler.start();
+
+// Optional: Set up web dashboard
+const app = express();
+const { setupDashboard } = require('scheduledtasks');
+await setupDashboard(app, scheduler);
+app.listen(3000);
+```
+
+Configuration file format remains the same, but your `filePath` should point to your custom task modules.
 
 ## Configuration: `example_task_config.json`
 
@@ -149,6 +194,48 @@ export default class TestTask extends MonitoredScheduledTask {
 ```
 
 Important: dynamic loading will `require()` the resolved `filePath`. The module must be loadable via Node's `require` (TypeScript + ts-node allows `.ts` files at runtime when using `ts-node`).
+
+### Example project structure when using as a module
+
+```
+my-project/
+├── package.json
+├── src/
+│   ├── tasks/
+│   │   ├── DataSyncTask.ts
+│   │   └── ReportTask.ts
+│   └── server.ts
+├── config/
+│   └── task_config.json
+└── tsconfig.json
+```
+
+Example `package.json`:
+
+```json
+{
+  "name": "my-scheduled-app",
+  "dependencies": {
+    "scheduledtasks": "^1.0.0",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.0.0"
+  },
+  "scripts": {
+    "start": "ts-node src/server.ts"
+  }
+}
+```
+
+### Publishing to npm
+
+If you want to publish this as your own npm package:
+
+```bash
+npm run build
+npm publish
+```
+
+The `prepublishOnly` script will automatically build the project before publishing.
 
 ## Database
 
