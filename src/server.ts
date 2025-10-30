@@ -7,26 +7,34 @@ import { setupDashboard } from './DashboardSetup';
 // Load environment variables
 dotenv.config();
 
-// Create Express application
-const app = express();
-const PORT = process.env.PORT || 3000;
+export function createServer(configPath?: string, port?: number): { app: express.Application; taskScheduler: TaskScheduler } {
+    // Create Express application
+    const app = express();
+    
+    // Middleware
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: true }));
 
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+    // Initialize TaskScheduler
+    const taskScheduler = new TaskScheduler(
+        configPath || path.join(__dirname, '..', 'data', 'example_task_config.json')
+    );
 
-// Initialize TaskScheduler
-const taskScheduler = new TaskScheduler(
-    path.join(__dirname, '..', 'data', 'example_task_config.json')
-);
+    return { app, taskScheduler };
+}
 
-// Setup dashboard routes and API endpoints
-async function initializeServer() {
+export async function initializeServer(configPath?: string, port?: number): Promise<{ app: express.Application; taskScheduler: TaskScheduler }> {
+    const PORT = port || parseInt(process.env.PORT || '3000');
+    const { app, taskScheduler } = createServer(configPath, PORT);
+
     try {
         // Setup dashboard with all API routes
         await setupDashboard(app, taskScheduler);
 
-     
+        // Root redirect to dashboard
+        app.get('/', (req, res) => {
+            res.redirect('/task-scheduler');
+        });
 
         // Health check endpoint
         app.get('/health', (req, res) => {
@@ -37,8 +45,8 @@ async function initializeServer() {
             });
         });
 
-        
-
+        // Serve static files from web directory (after specific routes)
+        app.use(express.static(path.join(__dirname, '..', 'web')));
 
         // 404 handler
         app.use('*', (req, res) => {
@@ -63,18 +71,17 @@ async function initializeServer() {
         taskScheduler.start();
         console.log('✅ Task scheduler started');
 
-        // Graceful shutdown
-        process.on('SIGINT', () => {
-            console.log('\n🛑 Received SIGINT. Shutting down gracefully...');
+        // Setup graceful shutdown handlers
+        const shutdownHandler = () => {
+            console.log('\n🛑 Received shutdown signal. Shutting down gracefully...');
             taskScheduler.stop();
             process.exit(0);
-        });
+        };
 
-        process.on('SIGTERM', () => {
-            console.log('\n🛑 Received SIGTERM. Shutting down gracefully...');
-            taskScheduler.stop();
-            process.exit(0);
-        });
+        process.on('SIGINT', shutdownHandler);
+        process.on('SIGTERM', shutdownHandler);
+
+        return { app, taskScheduler };
 
     } catch (error) {
         console.error('❌ Failed to initialize server:', error);
@@ -82,10 +89,21 @@ async function initializeServer() {
     }
 }
 
-// Initialize and start the server
-initializeServer().catch(error => {
-    console.error('❌ Failed to start server:', error);
-    process.exit(1);
-});
+// Main function - only runs when this file is executed directly
+async function main(): Promise<void> {
+    try {
+        console.log('🎯 TaskScheduler application starting...');
+        await initializeServer();
+    } catch (error) {
+        console.error('❌ Failed to start server:', error);
+        process.exit(1);
+    }
+}
 
-export default app;
+// Only execute main when run directly (not when imported as a module)
+if (require.main === module) {
+    main();
+}
+
+// Export the app for testing and module usage
+export default createServer;

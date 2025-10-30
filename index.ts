@@ -22,5 +22,5 @@ export interface TaskGroupConfig {
     tasks: TaskConfig[];
 }
 
-// Re-export the default server setup for convenience
-export { default as server } from './src/server';
+// Re-export the server functions for convenience
+export { createServer, initializeServer } from './src/server';
