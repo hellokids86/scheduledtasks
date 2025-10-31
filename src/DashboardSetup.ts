@@ -3,8 +3,10 @@ import * as path from 'path';
 import { TaskScheduler } from './TaskScheduler';
 
 export async function setupDashboard(app: Application, taskScheduler: TaskScheduler): Promise<void> {
+    console.log('🛣️  Setting up TaskScheduler dashboard routes...');
 
     // Dashboard API routes
+    console.log('📋 Registering route: GET /task-scheduler/api/status');
     app.get('/task-scheduler/api/status', (req, res) => {
         try {
             const status = taskScheduler.getStatus();
@@ -14,6 +16,7 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
         }
     });
 
+    console.log('📊 Registering route: GET /task-scheduler/api/task-summary');
     app.get('/task-scheduler/api/task-summary', (req, res) => {
         try {
             const summary = taskScheduler.getTaskSummary();
@@ -23,6 +26,7 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
         }
     });
 
+    console.log('❌ Registering route: GET /task-scheduler/api/errors');
     app.get('/task-scheduler/api/errors', (req, res) => {
         try {
             const hours = parseInt(req.query.hours as string) || 24;
@@ -34,6 +38,7 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
     });
 
     // Manual task execution
+    console.log('🚀 Registering route: POST /task-scheduler/api/run-group/:groupName');
     app.post('/task-scheduler/api/run-group/:groupName', async (req, res) => {
         try {
             const { groupName } = req.params;
@@ -49,6 +54,7 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
     });
 
     // Manual single task execution
+    console.log('⚡ Registering route: POST /task-scheduler/api/run-task/:groupName/:taskName');
     app.post('/task-scheduler/api/run-task/:groupName/:taskName', async (req, res) => {
         try {
             const { groupName, taskName } = req.params;
@@ -64,6 +70,7 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
     });
 
     // Cleanup endpoint
+    console.log('🧹 Registering route: POST /task-scheduler/api/cleanup');
     app.post('/task-scheduler/api/cleanup', (req, res) => {
         try {
             const days = parseInt(req.body.days) || 30;
@@ -75,17 +82,16 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
         }
     });
 
-
-
-
-
-    // Serve main dashboard
+    // Dashboard pages
+    console.log('🏠 Registering route: GET /task-scheduler (Dashboard)');
     app.get('/task-scheduler', (req: Request, res: Response) => {
         res.sendFile(path.join(__dirname, '..', 'web', 'index.html'));
     });
 
-    // Serve errors page
+    console.log('🔴 Registering route: GET /task-scheduler/errors (Errors page)');
     app.get('/task-scheduler/errors', (req: Request, res: Response) => {
         res.sendFile(path.join(__dirname, '..', 'web', 'errors.html'));
     });
+
+    console.log('✅ Dashboard setup complete! Registered 8 routes total');
 }
