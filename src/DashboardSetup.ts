@@ -1,9 +1,58 @@
 import { Request, Response, Application } from 'express';
 import * as path from 'path';
+import * as fs from 'fs';
 import { TaskScheduler } from './TaskScheduler';
 
-export async function setupDashboard(app: Application, taskScheduler: TaskScheduler): Promise<void> {
+// Helper function to find the correct web directory path
+function getWebDirectoryPath(): string {
+    // Try different possible locations for the web directory
+    const possiblePaths = [
+        // When running from source (ts-node): src/ -> ../web
+        path.join(__dirname, '..', 'web'),
+        // When running from compiled dist: dist/src/ -> ../../web  
+        path.join(__dirname, '..', '..', 'web'),
+        // When used as node_module: find the scheduledtasks package root
+        path.join(__dirname, '..', '..', 'web'),
+    ];
+    
+    // Also try to find the package root by looking for package.json
+    let currentDir = __dirname;
+    for (let i = 0; i < 5; i++) { // Max 5 levels up
+        const packageJsonPath = path.join(currentDir, 'package.json');
+        if (fs.existsSync(packageJsonPath)) {
+            try {
+                const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+                if (packageJson.name === 'scheduledtasks') {
+                    // Found our package root, web should be here
+                    possiblePaths.unshift(path.join(currentDir, 'web'));
+                    break;
+                }
+            } catch (e) {
+                // Ignore JSON parse errors
+            }
+        }
+        currentDir = path.join(currentDir, '..');
+    }
+    
+    // Try to find the web directory
+    for (const webPath of possiblePaths) {
+        if (fs.existsSync(webPath) && fs.existsSync(path.join(webPath, 'index.html'))) {
+            return webPath;
+        }
+    }
+    
+    // Fallback - assume relative to current directory
+    const fallbackPath = path.join(__dirname, '..', 'web');
+    console.warn(`⚠️  Could not find web directory, using fallback: ${fallbackPath}`);
+    return fallbackPath;
+}
+
+export async function setupDashboard(app: Application, taskScheduler: TaskScheduler, webDirPath?: string): Promise<void> {
     console.log('🛣️  Setting up TaskScheduler dashboard routes...');
+    
+    // Get the correct web directory path
+    const webDir = webDirPath || getWebDirectoryPath();
+    console.log(`📁 Using web directory: ${webDir}`);
 
     // Dashboard API routes
     console.log('📋 Registering route: GET /task-scheduler/api/status');
@@ -85,12 +134,22 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
     // Dashboard pages
     console.log('🏠 Registering route: GET /task-scheduler (Dashboard)');
     app.get('/task-scheduler', (req: Request, res: Response) => {
-        res.sendFile(path.join(__dirname, '..', 'web', 'index.html'));
+        const indexPath = path.join(webDir, 'index.html');
+        if (fs.existsSync(indexPath)) {
+            res.sendFile(indexPath);
+        } else {
+            res.status(404).json({ error: 'Dashboard page not found', path: indexPath });
+        }
     });
 
     console.log('🔴 Registering route: GET /task-scheduler/errors (Errors page)');
     app.get('/task-scheduler/errors', (req: Request, res: Response) => {
-        res.sendFile(path.join(__dirname, '..', 'web', 'errors.html'));
+        const errorsPath = path.join(webDir, 'errors.html');
+        if (fs.existsSync(errorsPath)) {
+            res.sendFile(errorsPath);
+        } else {
+            res.status(404).json({ error: 'Errors page not found', path: errorsPath });
+        }
     });
 
     console.log('✅ Dashboard setup complete! Registered 8 routes total');

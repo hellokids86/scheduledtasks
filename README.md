@@ -83,6 +83,13 @@ scheduler.start();
 // Optional: Set up web dashboard
 const app = express();
 const { setupDashboard } = require('scheduledtasks');
+const path = require('path');
+
+// The setupDashboard function will automatically find the web directory
+// But you can also specify it manually if needed:
+// const webDir = path.join(__dirname, 'node_modules', 'scheduledtasks', 'web');
+// await setupDashboard(app, scheduler, webDir);
+
 await setupDashboard(app, scheduler);
 app.listen(3000);
 ```
@@ -243,10 +250,16 @@ A local SQLite database (`TaskScheduler.db`) is used via `better-sqlite3` and is
 
 ## Troubleshooting
 
-- TypeScript `.ts` import errors: ensure `tsconfig.json` exists (this project includes one) and `ts-node` is installed (devDependency). `npm start` uses `npx ts-node`.
-- Port conflicts: if `EADDRINUSE` occurs, ensure nothing else is listening on the configured `PORT` (default 3000); stop other processes or change `PORT` env var.
-- Static files: the dashboard pages are under `web/` and served from `/task-scheduler` and `/task-scheduler/errors`.
-- If your task module isn't loading, check the `filePath` and ensure the file `default`-exports a class extending `MonitoredScheduledTask`.
+- **TypeScript `.ts` import errors**: ensure `tsconfig.json` exists (this project includes one) and `ts-node` is installed (devDependency). `npm start` uses `npx ts-node`.
+- **Port conflicts**: if `EADDRINUSE` occurs, ensure nothing else is listening on the configured `PORT` (default 3000); stop other processes or change `PORT` env var.
+- **Dashboard pages not found (404 errors)**: The dashboard pages are under `web/` directory. When used as a node module, the `setupDashboard` function automatically detects the correct path. If you get 404 errors, check the console logs for the web directory path being used.
+- **Web directory path issues**: If the automatic detection fails, you can manually specify the web directory:
+  ```typescript
+  const path = require('path');
+  const webDir = path.join(__dirname, 'node_modules', 'scheduledtasks', 'web');
+  await setupDashboard(app, scheduler, webDir);
+  ```
+- **Task module loading errors**: check the `filePath` and ensure the file `default`-exports a class extending `MonitoredScheduledTask`.
 
 ## Contributing & Next steps
 
