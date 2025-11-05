@@ -51,14 +51,14 @@ export class TaskScheduler {
         try {
             const configData = await fs.readFile(configPath, 'utf-8');
             const taskGroups: TaskGroupConfig[] = JSON.parse(configData);
-            
+
             // Store the configuration for later use
             this.taskConfigs = taskGroups;
-            
+
             for (const groupConfig of taskGroups) {
                 this.scheduleTaskGroup(groupConfig);
             }
-            
+
             console.log(`✅ Loaded ${taskGroups.length} task groups from configuration`);
         } catch (error) {
             console.error('❌ Failed to load task configuration:', error);
@@ -68,7 +68,8 @@ export class TaskScheduler {
 
     private scheduleTaskGroup(groupConfig: TaskGroupConfig): void {
         const task = cron.schedule(groupConfig.cron, () => {
-            this.executeTaskGroup(groupConfig);
+            if (this.isRunning)
+                this.executeTaskGroup(groupConfig);
         }, {
             timezone: "America/Phoenix" // Arizona timezone (no daylight saving)
         });
@@ -88,10 +89,10 @@ export class TaskScheduler {
         }
 
         console.log('🚀 Starting TaskScheduler...');
-        
+
         // Mark any incomplete tasks/groups from previous sessions as errors
         this.db.markIncompleteTasksAsErrors();
-        
+
         // Start all scheduled tasks
         this.scheduledTasks.forEach((scheduledTask, groupName) => {
             scheduledTask.task.start();
@@ -100,10 +101,10 @@ export class TaskScheduler {
 
         // Start the database update interval (every 3 seconds)
         this.startUpdateInterval();
-        
+
         // Set up graceful shutdown handlers
         this.setupShutdownHandlers();
-        
+
         this.isRunning = true;
         console.log('✅ TaskScheduler started successfully');
     }
@@ -115,10 +116,10 @@ export class TaskScheduler {
         }
 
         console.log('🛑 Stopping TaskScheduler...');
-        
+
         // Mark any in-progress tasks/groups as shutdown errors
         this.db.markRunningTasksAsShutdownErrors();
-        
+
         // Stop all scheduled tasks
         this.scheduledTasks.forEach((scheduledTask, groupName) => {
             scheduledTask.task.stop();
@@ -147,7 +148,7 @@ export class TaskScheduler {
         process.on('SIGINT', shutdownHandler);    // Ctrl+C
         process.on('SIGTERM', shutdownHandler);   // Termination signal
         process.on('SIGBREAK', shutdownHandler);  // Windows Ctrl+Break
-        
+
         // Handle uncaught exceptions
         process.on('uncaughtException', (error) => {
             console.error('💥 Uncaught Exception:', error);
@@ -195,7 +196,7 @@ export class TaskScheduler {
             // Create all tasks for this group
             const tasks: MonitoredScheduledTask[] = [];
             const taskInfos: { task: MonitoredScheduledTask; config: TaskConfig; calculatedParams: Record<string, any> }[] = [];
-            
+
             for (const taskConfig of groupConfig.tasks) {
                 const taskId = generateUUID();
                 const { task, calculatedParams } = await this.createTask(taskConfig, taskId, taskGroupId);
@@ -237,7 +238,7 @@ export class TaskScheduler {
             if (stackTrace) {
                 console.error(`Stack trace: ${stackTrace}`);
             }
-            
+
             this.db.updateTaskGroup(taskGroupId, {
                 status: TaskStatus.ERROR,
                 message: `Task group failed: ${errorMessage}`,
@@ -274,7 +275,7 @@ export class TaskScheduler {
         } finally {
             // Remove from running tasks map
             this.runningTasks.delete(task.taskId);
-            
+
             // Final database update
             this.updateTaskInDatabase(task);
         }
@@ -283,7 +284,7 @@ export class TaskScheduler {
     private async createTask(taskConfig: TaskConfig, taskId: string, taskGroupId: string): Promise<{ task: MonitoredScheduledTask; calculatedParams: Record<string, any> }> {
         // Calculate lastChanged parameter if not provided
         const params = { ...taskConfig.params };
-        
+
         // If lastChanged is not already set, calculate it from the last completed run
         if (!params.lastChanged) {
             const lastCompletedRun = this.db.getLastCompletedRun(taskConfig.name);
@@ -291,7 +292,7 @@ export class TaskScheduler {
                 // Take the last start time and subtract 10 minutes
                 const lastStartTime = new Date(lastCompletedRun.startTime);
                 const lastChangedTime = new Date(lastStartTime.getTime() - 10 * 60 * 1000); // Subtract 10 minutes
-                
+
                 // Convert to Arizona time for MSSQL database filtering
                 const arizonaTime = convertUtcToArizonaTime(lastChangedTime);
                 params.lastChanged = arizonaTime.toISOString();
@@ -307,17 +308,17 @@ export class TaskScheduler {
 
         // Dynamic import of the task file
         const taskPath = path.resolve(taskConfig.filePath);
-        
+
         // Clear require cache to ensure fresh module load
         delete require.cache[require.resolve(taskPath)];
         const taskModule = require(taskPath);
-        
+
         // Check if the module exports a MonitoredScheduledTask subclass
-        if (taskModule.default && 
-            typeof taskModule.default === 'function' && 
-            taskModule.default.prototype && 
+        if (taskModule.default &&
+            typeof taskModule.default === 'function' &&
+            taskModule.default.prototype &&
             taskModule.default.prototype instanceof MonitoredScheduledTask) {
-            
+
             // Direct instantiation of MonitoredScheduledTask subclass
             console.log(`📦 Creating MonitoredScheduledTask instance for: ${taskConfig.name}`);
             const task = new taskModule.default(taskConfig.name, taskId, params);
@@ -362,20 +363,20 @@ export class TaskScheduler {
     public getTaskSummary(): any[] {
         // Group tasks by their task group
         const groupedData: any[] = [];
-        
+
         this.taskConfigs.forEach(groupConfig => {
             // Calculate next run time for this group
             const nextRun = this.getNextCronTime(groupConfig.cron);
-            
+
             // Get tasks for this group
             const groupTasks = groupConfig.tasks.map(taskConfig => {
                 // Get the last completed run for this task
                 const lastRun = this.db.getLastCompletedRun(taskConfig.name);
-                
+
                 // Check if there's a currently running task with this name
                 const runningTask = Array.from(this.runningTasks.values())
                     .find(task => task.taskName === taskConfig.name);
-                
+
                 return {
                     taskName: taskConfig.name,
                     filePath: taskConfig.filePath,
@@ -398,10 +399,10 @@ export class TaskScheduler {
                     errorHours: taskConfig.errorHours
                 };
             });
-            
+
             // Check if any task in this group is running
             const isGroupRunning = groupTasks.some(task => task.isRunning);
-            
+
             groupedData.push({
                 groupName: groupConfig.groupName,
                 cronExpression: groupConfig.cron,
@@ -412,7 +413,7 @@ export class TaskScheduler {
                 tasks: groupTasks
             });
         });
-        
+
         return groupedData;
     }
 
@@ -443,7 +444,7 @@ export class TaskScheduler {
         }
 
         console.log(`🔧 Manually triggering single task: ${taskName} from group: ${groupName}`);
-        
+
         // Create a temporary single-task group config
         const singleTaskGroupConfig: TaskGroupConfig = {
             groupName: `${groupName}_SingleTask_${taskName}`,
