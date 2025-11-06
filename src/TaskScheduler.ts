@@ -61,6 +61,9 @@ export class TaskScheduler {
                 this.scheduleTaskGroup(groupConfig);
             }
 
+            this.db.markIncompleteTasksAsErrors();
+
+
             console.log(`✅ Loaded ${this.taskConfigs.length} task groups from configuration`);
         } catch (error) {
             console.error('❌ Failed to load task configuration:', error);
