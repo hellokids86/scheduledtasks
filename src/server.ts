@@ -51,7 +51,7 @@ export async function initializeServer(configPath?: string, port?: number): Prom
        
 
         // Serve static files from web directory (after specific routes)
-        app.use(express.static(path.join(__dirname, '..', 'web')));
+      //
 
         // 404 handler
         app.use('*', (req, res) => {

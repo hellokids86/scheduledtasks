@@ -1,4 +1,5 @@
 import { Request, Response, Application } from 'express';
+import * as express from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
 import { TaskScheduler } from './TaskScheduler';
@@ -151,6 +152,9 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
             res.status(404).json({ error: 'Errors page not found', path: errorsPath });
         }
     });
+
+    // Serve static files from web directory
+    app.use('/task-scheduler/', express.static(path.join(webDir )));
 
     console.log('✅ Dashboard setup complete! Registered 8 routes total');
 }
