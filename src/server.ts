@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { TaskScheduler } from './TaskScheduler';
 import { setupDashboard } from './DashboardSetup';
-
+import fs from 'fs';
 // Load environment variables
 dotenv.config();
 
@@ -17,7 +17,8 @@ export function createServer(configPath?: string, port?: number): { app: express
 
     // Initialize TaskScheduler
     const taskScheduler = new TaskScheduler(
-        configPath || path.join(__dirname, '..', 'data', 'example_task_config.json')
+        configPath || path.join(__dirname, '..', 'data', 'example_task_config.json'), 
+        path.join(__dirname, '..', 'data', 'task_database.sqlite')
     );
 
     return { app, taskScheduler };
@@ -44,6 +45,10 @@ export async function initializeServer(configPath?: string, port?: number): Prom
                 uptime: process.uptime()
             });
         });
+
+
+
+       
 
         // Serve static files from web directory (after specific routes)
         app.use(express.static(path.join(__dirname, '..', 'web')));

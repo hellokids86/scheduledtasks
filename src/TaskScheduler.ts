@@ -13,7 +13,7 @@ function generateUUID(): string {
     return crypto.randomUUID();
 }
 
-interface TaskConfig {
+export interface TaskConfig {
     name: string;
     filePath: string;
     params: Record<string, any>;
@@ -21,7 +21,7 @@ interface TaskConfig {
     errorHours: number;
 }
 
-interface TaskGroupConfig {
+export interface TaskGroupConfig {
     groupName: string;
     cron: string;
     warningHours: number;
@@ -42,24 +42,26 @@ export class TaskScheduler {
     private isRunning = false;
     private taskConfigs: TaskGroupConfig[] = [];
 
-    constructor(configPath: string = 'task_config.json', dbPath?: string) {
+    constructor(config: string | TaskGroupConfig[] = [], dbPath: string) {
         this.db = DatabaseManager.getInstance(dbPath);
-        this.loadConfiguration(configPath);
+        this.loadConfiguration(config);
     }
 
-    private async loadConfiguration(configPath: string): Promise<void> {
+    private async loadConfiguration(config: string | TaskGroupConfig[]): Promise<void> {
         try {
-            const configData = await fs.readFile(configPath, 'utf-8');
-            const taskGroups: TaskGroupConfig[] = JSON.parse(configData);
+            if(typeof config === 'string') {
+                const configData = await fs.readFile(config, 'utf-8');
+                this.taskConfigs = JSON.parse(configData);
+            }else{
+                // Directly use provided configuration object
+                this.taskConfigs = config;
+            }
 
-            // Store the configuration for later use
-            this.taskConfigs = taskGroups;
-
-            for (const groupConfig of taskGroups) {
+            for (const groupConfig of this.taskConfigs) {
                 this.scheduleTaskGroup(groupConfig);
             }
 
-            console.log(`✅ Loaded ${taskGroups.length} task groups from configuration`);
+            console.log(`✅ Loaded ${this.taskConfigs.length} task groups from configuration`);
         } catch (error) {
             console.error('❌ Failed to load task configuration:', error);
             throw error;
