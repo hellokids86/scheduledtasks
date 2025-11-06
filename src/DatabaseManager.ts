@@ -85,6 +85,9 @@ export class DatabaseManager {
 
         // Run migrations
         this.runMigrations();
+
+        this.cleanupOldRecords();
+
     }
 
     private runMigrations(): void {
@@ -136,6 +139,7 @@ export class DatabaseManager {
 
     // Task operations
     public insertTask(task: TaskRecord): void {
+        this.cleanupOldRecords();
         const stmt = this.db.prepare(`
             INSERT INTO tasks (taskGroupId, taskId, taskName, params, filePath, status, message, startTime, endTime, summary, percentage)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
