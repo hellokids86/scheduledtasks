@@ -48,16 +48,16 @@ function getWebDirectoryPath(): string {
     return fallbackPath;
 }
 
-export async function setupDashboard(app: Application, taskScheduler: TaskScheduler, webDirPath?: string): Promise<void> {
+export async function setupDashboard(app: Application, taskScheduler: TaskScheduler, route: string = '/task-scheduler'): Promise<void> {
     console.log('🛣️  Setting up TaskScheduler dashboard routes...');
     
     // Get the correct web directory path
-    const webDir = webDirPath || getWebDirectoryPath();
+    const webDir =  getWebDirectoryPath();
     console.log(`📁 Using web directory: ${webDir}`);
 
     // Dashboard API routes
-    console.log('📋 Registering route: GET /task-scheduler/api/status');
-    app.get('/task-scheduler/api/status', (req, res) => {
+    console.log(`📋 Registering route: GET ${route}/api/status`);
+    app.get(`${route}/api/status`, (req, res) => {
         try {
             const status = taskScheduler.getStatus();
             res.json(status);
@@ -66,8 +66,8 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
         }
     });
 
-    console.log('📊 Registering route: GET /task-scheduler/api/task-summary');
-    app.get('/task-scheduler/api/task-summary', (req, res) => {
+    console.log(`📊 Registering route: GET ${route}/api/task-summary`);
+    app.get(`${route}/api/task-summary`, (req, res) => {
         try {
             const summary = taskScheduler.getTaskSummary();
             res.json(summary);
@@ -76,8 +76,8 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
         }
     });
 
-    console.log('❌ Registering route: GET /task-scheduler/api/errors');
-    app.get('/task-scheduler/api/errors', (req, res) => {
+    console.log(`❌ Registering route: GET ${route}/api/errors`);
+    app.get(`${route}/api/errors`, (req, res) => {
         try {
             const hours = parseInt(req.query.hours as string) || 24;
             const errors = taskScheduler.getErrorTasks(hours);
@@ -88,8 +88,8 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
     });
 
     // Manual task execution
-    console.log('🚀 Registering route: POST /task-scheduler/api/run-group/:groupName');
-    app.post('/task-scheduler/api/run-group/:groupName', async (req, res) => {
+    console.log(`🚀 Registering route: POST ${route}/api/run-group/:groupName`);
+    app.post(`${route}/api/run-group/:groupName`, async (req, res) => {
         try {
             const { groupName } = req.params;
             // Trigger async execution without waiting
@@ -104,8 +104,8 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
     });
 
     // Manual single task execution
-    console.log('⚡ Registering route: POST /task-scheduler/api/run-task/:groupName/:taskName');
-    app.post('/task-scheduler/api/run-task/:groupName/:taskName', async (req, res) => {
+    console.log(`⚡ Registering route: POST ${route}/api/run-task/:groupName/:taskName`);
+    app.post(`${route}/api/run-task/:groupName/:taskName`, async (req, res) => {
         try {
             const { groupName, taskName } = req.params;
             // Trigger async execution without waiting
@@ -120,8 +120,8 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
     });
 
     // Cleanup endpoint
-    console.log('🧹 Registering route: POST /task-scheduler/api/cleanup');
-    app.post('/task-scheduler/api/cleanup', (req, res) => {
+    console.log(`🧹 Registering route: POST ${route}/api/cleanup`);
+    app.post(`${route}/api/cleanup`, (req, res) => {
         try {
             const days = parseInt(req.body.days) || 30;
             taskScheduler.cleanup(days);
@@ -133,8 +133,8 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
     });
 
     // Dashboard pages
-    console.log('🏠 Registering route: GET /task-scheduler (Dashboard)');
-    app.get('/task-scheduler', (req: Request, res: Response) => {
+    console.log(`🏠 Registering route: GET ${route} (Dashboard)`);
+    app.get(route, (req: Request, res: Response) => {
         const indexPath = path.join(webDir, 'index.html');
         if (fs.existsSync(indexPath)) {
             res.sendFile(indexPath);
@@ -143,8 +143,8 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
         }
     });
 
-    console.log('🔴 Registering route: GET /task-scheduler/errors (Errors page)');
-    app.get('/task-scheduler/errors', (req: Request, res: Response) => {
+    console.log(`🔴 Registering route: GET ${route}/errors (Errors page)`);
+    app.get(`${route}/errors`, (req: Request, res: Response) => {
         const errorsPath = path.join(webDir, 'errors.html');
         if (fs.existsSync(errorsPath)) {
             res.sendFile(errorsPath);
@@ -154,7 +154,7 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
     });
 
     // Serve static files from web directory
-    app.use('/task-scheduler/', express.static(path.join(webDir )));
+    app.use(`${route}/`, express.static(path.join(webDir )));
 
     console.log('✅ Dashboard setup complete! Registered 8 routes total');
 }
