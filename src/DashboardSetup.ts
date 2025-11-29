@@ -132,12 +132,42 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
         }
     });
 
+    // Serve dynamic route configuration
+    console.log(`📄 Registering route: GET ${route}/route.js`);
+    app.get(`${route}/route.js`, (req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'application/javascript');
+        res.send(`
+// Dynamic route configuration - injected by server
+window.DASHBOARD_ROUTE = '${route}';
+
+function apiUrl(endpoint) {
+    return \`\${window.DASHBOARD_ROUTE}/api/\${endpoint}\`;
+}
+
+function pageUrl(page) {
+    return \`\${window.DASHBOARD_ROUTE}/\${page}\`;
+}
+        `);
+    });
+
     // Dashboard pages
     console.log(`🏠 Registering route: GET ${route} (Dashboard)`);
     app.get(route, (req: Request, res: Response) => {
         const indexPath = path.join(webDir, 'index.html');
         if (fs.existsSync(indexPath)) {
-            res.sendFile(indexPath);
+            let html = fs.readFileSync(indexPath, 'utf8');
+            // Inject the route configuration script before </head>
+            const routeScript = `    <script>
+        window.DASHBOARD_ROUTE = '${route}';
+        function apiUrl(endpoint) {
+            return \`\${window.DASHBOARD_ROUTE}/api/\${endpoint}\`;
+        }
+        function pageUrl(page) {
+            return \`\${window.DASHBOARD_ROUTE}/\${page}\`;
+        }
+    </script>`;
+            html = html.replace('</head>', `${routeScript}\n</head>`);
+            res.send(html);
         } else {
             res.status(404).json({ error: 'Dashboard page not found', path: indexPath });
         }
@@ -147,7 +177,19 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
     app.get(`${route}/errors`, (req: Request, res: Response) => {
         const errorsPath = path.join(webDir, 'errors.html');
         if (fs.existsSync(errorsPath)) {
-            res.sendFile(errorsPath);
+            let html = fs.readFileSync(errorsPath, 'utf8');
+            // Inject the route configuration script before </head>
+            const routeScript = `    <script>
+        window.DASHBOARD_ROUTE = '${route}';
+        function apiUrl(endpoint) {
+            return \`\${window.DASHBOARD_ROUTE}/api/\${endpoint}\`;
+        }
+        function pageUrl(page) {
+            return \`\${window.DASHBOARD_ROUTE}/\${page}\`;
+        }
+    </script>`;
+            html = html.replace('</head>', `${routeScript}\n</head>`);
+            res.send(html);
         } else {
             res.status(404).json({ error: 'Errors page not found', path: errorsPath });
         }
@@ -156,5 +198,5 @@ export async function setupDashboard(app: Application, taskScheduler: TaskSchedu
     // Serve static files from web directory
     app.use(`${route}/`, express.static(path.join(webDir )));
 
-    console.log('✅ Dashboard setup complete! Registered 8 routes total');
+    console.log('✅ Dashboard setup complete! Registered 9 routes total');
 }
