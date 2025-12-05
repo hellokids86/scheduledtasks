@@ -4,6 +4,8 @@ import * as dotenv from 'dotenv';
 import { TaskScheduler } from './TaskScheduler';
 import { setupDashboard } from './DashboardSetup';
 import fs from 'fs';
+import tasks from './example_task_config';
+
 // Load environment variables
 dotenv.config();
 
@@ -17,7 +19,7 @@ export function createServer(configPath?: string, port?: number): { app: express
 
     // Initialize TaskScheduler
     const taskScheduler = new TaskScheduler(
-        configPath || path.join(__dirname, '..', 'data', 'example_task_config.json'), 
+        tasks, 
         path.join(__dirname, '..', 'data', 'task_database.sqlite')
     );
 

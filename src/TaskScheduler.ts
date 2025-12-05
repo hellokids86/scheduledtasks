@@ -19,13 +19,12 @@ export interface TaskConfig {
     params: Record<string, any>;
     warningHours: number;
     errorHours: number;
+    killOnFail?: boolean;
 }
 
 export interface TaskGroupConfig {
     groupName: string;
     cron: string;
-    warningHours: number;
-    errorHours: number;
     tasks: TaskConfig[];
 }
 
@@ -222,19 +221,47 @@ export class TaskScheduler {
                 });
             }
 
-            // Execute tasks sequentially
-            for (const task of tasks) {
+            // Execute tasks sequentially, checking for killOnFail
+            let shouldContinue = true;
+            for (let i = 0; i < tasks.length; i++) {
+                const task = tasks[i];
+                const taskConfig = groupConfig.tasks[i];
+
+                if (!shouldContinue) {
+                    // Skip remaining tasks
+                    console.log(`⏭️ Skipping task ${task.taskName} due to previous task failure with killOnFail=true`);
+                    task.skip('Skipped due to previous task failure (killOnFail)');
+                    this.updateTaskInDatabase(task);
+                    continue;
+                }
+
                 await this.executeTask(task);
+
+                // Check if task failed and killOnFail is enabled
+                if (taskConfig.killOnFail && task.status === TaskStatus.ERROR) {
+                    console.log(`🛑 Task ${task.taskName} failed with killOnFail=true. Stopping remaining tasks in group.`);
+                    shouldContinue = false;
+                }
             }
 
-            // Mark group as completed
-            this.db.updateTaskGroup(taskGroupId, {
-                status: TaskStatus.COMPLETED,
-                message: 'All tasks completed successfully',
-                endTime: new Date().toISOString()
-            });
+            // Mark group as completed only if we executed all tasks or update status accordingly
+            if (shouldContinue) {
+                this.db.updateTaskGroup(taskGroupId, {
+                    status: TaskStatus.COMPLETED,
+                    message: 'All tasks completed successfully',
+                    endTime: new Date().toISOString()
+                });
 
-            console.log(`✅ Task group completed: ${groupConfig.groupName}`);
+                console.log(`✅ Task group completed: ${groupConfig.groupName}`);
+            } else {
+                this.db.updateTaskGroup(taskGroupId, {
+                    status: TaskStatus.ERROR,
+                    message: 'Task group stopped early due to task failure with killOnFail=true',
+                    endTime: new Date().toISOString()
+                });
+
+                console.log(`⚠️ Task group partially completed: ${groupConfig.groupName} (stopped early due to killOnFail)`);
+            }
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -413,8 +440,6 @@ export class TaskScheduler {
                 cronExpression: groupConfig.cron,
                 nextRunTime: nextRun,
                 isGroupRunning: isGroupRunning,
-                warningHours: groupConfig.warningHours,
-                errorHours: groupConfig.errorHours,
                 tasks: groupTasks
             });
         });
@@ -454,8 +479,6 @@ export class TaskScheduler {
         const singleTaskGroupConfig: TaskGroupConfig = {
             groupName: `${groupName}_SingleTask_${taskName}`,
             cron: scheduledTask.config.cron,
-            warningHours: scheduledTask.config.warningHours,
-            errorHours: scheduledTask.config.errorHours,
             tasks: [taskConfig]
         };
 

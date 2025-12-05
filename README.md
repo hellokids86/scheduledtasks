@@ -104,8 +104,6 @@ Top-level structure:
 
 - `groupName` (string): Logical name for the task group
 - `cron` (string): Cron expression (node-cron format) describing when the group runs
-- `warningHours` (number): Hours threshold for "warning" age of a task (UI/DB logic)
-- `errorHours` (number): Hours threshold for "error" age of a task (UI/DB logic)
 - `tasks` (array): List of tasks in this group
 
 Each task object:
@@ -113,7 +111,9 @@ Each task object:
 - `name` (string): Name of the task (used to identify last runs)
 - `filePath` (string): Path to the TypeScript task module (relative or absolute). Example: `src/TestTask.ts`
 - `params` (object): Arbitrary key/value params passed to the task constructor
-- `warningHours` (number) and `errorHours` (number): Per-task thresholds (optional)
+- `warningHours` (number): Hours threshold for "warning" age of a task
+- `errorHours` (number): Hours threshold for "error" age of a task
+- `killOnFail` (boolean, optional): If true, stops remaining tasks in group on failure
 
 Example (from `data/example_task_config.json`):
 
@@ -122,15 +122,14 @@ Example (from `data/example_task_config.json`):
   {
     "groupName": "Test Group",
     "cron": "*/5 * * * *",
-    "warningHours": 0.1,
-    "errorHours": 0.05,
     "tasks": [
       {
         "name": "Test Task",
         "filePath": "src/TestTask.ts",
         "params": { "testParam": "hello world" },
         "warningHours": 0.1,
-        "errorHours": 0.05
+        "errorHours": 0.05,
+        "killOnFail": false
       }
     ]
   }
