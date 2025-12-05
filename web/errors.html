@@ -50,9 +50,9 @@
                         <button class="btn btn-outline-primary" onclick="refreshErrors()">
                             <i class="fas fa-sync-alt"></i> Refresh
                         </button>
-                        <a href="/task-scheduler" class="btn btn-outline-secondary">
+                        <button class="btn btn-outline-secondary" onclick="window.location.href = pageUrl('')">
                             <i class="fas fa-arrow-left"></i> Back to Dashboard
-                        </a>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -160,7 +160,7 @@
         async function loadErrors() {
             try {
                 const hours = document.getElementById('timeFilter').value;
-                const response = await fetch(`/task-scheduler/api/errors?hours=${hours}`);
+                const response = await fetch(apiUrl(`errors?hours=${hours}`));
                 const errors = await response.json();
                 
                 updateErrorStats(errors);
