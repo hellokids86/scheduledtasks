@@ -195,8 +195,72 @@ function pageUrl(page) {
         }
     });
 
+    // Version endpoint - displays git commit info
+    console.log(`🔖 Registering route: GET ${route}/version`);
+    app.get(`${route}/version`, (req, res) => {
+        const versionPath = path.join(webDir, 'version.html');
+        if (fs.existsSync(versionPath)) {
+            let html = fs.readFileSync(versionPath, 'utf8');
+            // Inject the route configuration script before </head>
+            const routeScript = `    <script>
+        window.DASHBOARD_ROUTE = '${route}';
+        function apiUrl(endpoint) {
+            return \`\${window.DASHBOARD_ROUTE}/api/\${endpoint}\`;
+        }
+        function pageUrl(page) {
+            return \`\${window.DASHBOARD_ROUTE}/\${page}\`;
+        }
+    </script>`;
+            html = html.replace('</head>', `${routeScript}\n</head>`);
+            res.send(html);
+        } else {
+            res.status(404).json({ error: 'Version page not found', path: versionPath });
+        }
+    });
+
+    // API endpoint for git version info
+    console.log(`🔖 Registering route: GET ${route}/api/version`);
+    app.get(`${route}/api/version`, async (req, res) => {
+        try {
+            const { execSync } = require('child_process');
+            
+            // Get git commit hash
+            const commitHash = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+            const shortHash = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+            
+            // Get commit date
+            const commitDate = execSync('git log -1 --format=%cd --date=iso', { encoding: 'utf-8' }).trim();
+            
+            // Get commit author
+            const commitAuthor = execSync('git log -1 --format=%an', { encoding: 'utf-8' }).trim();
+            const commitEmail = execSync('git log -1 --format=%ae', { encoding: 'utf-8' }).trim();
+            
+            // Get commit message
+            const commitMessage = execSync('git log -1 --format=%s', { encoding: 'utf-8' }).trim();
+            
+            // Get branch name
+            const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).trim();
+            
+            res.json({
+                commitHash,
+                shortHash,
+                commitDate,
+                commitAuthor,
+                commitEmail,
+                commitMessage,
+                branch
+            });
+        } catch (error) {
+            console.error('Error fetching git info:', error);
+            res.status(500).json({ 
+                error: 'Failed to fetch git information',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
     // Serve static files from web directory
     app.use(`${route}/`, express.static(path.join(webDir )));
 
-    console.log('✅ Dashboard setup complete! Registered 9 routes total');
+    console.log('✅ Dashboard setup complete! Registered 11 routes total');
 }

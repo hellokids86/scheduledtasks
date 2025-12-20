@@ -234,7 +234,7 @@
         // Fetch version information from the API
         async function loadVersionInfo() {
             try {
-                const response = await fetch('/api/version');
+                const response = await fetch(apiUrl('version'));
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }

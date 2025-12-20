@@ -48,58 +48,6 @@ export async function initializeServer(configPath?: string, port?: number): Prom
             });
         });
 
-        // Version endpoint - displays git commit info
-        app.get('/version', (req, res) => {
-            res.sendFile(path.join(__dirname, '..', 'web', 'version.html'));
-        });
-
-        // API endpoint for git version info
-        app.get('/api/version', async (req, res) => {
-            try {
-                const { execSync } = require('child_process');
-                
-                // Get git commit hash
-                const commitHash = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
-                const shortHash = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
-                
-                // Get commit date
-                const commitDate = execSync('git log -1 --format=%cd --date=iso', { encoding: 'utf-8' }).trim();
-                
-                // Get commit author
-                const commitAuthor = execSync('git log -1 --format=%an', { encoding: 'utf-8' }).trim();
-                const commitEmail = execSync('git log -1 --format=%ae', { encoding: 'utf-8' }).trim();
-                
-                // Get commit message
-                const commitMessage = execSync('git log -1 --format=%s', { encoding: 'utf-8' }).trim();
-                
-                // Get branch name
-                const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).trim();
-                
-                res.json({
-                    commitHash,
-                    shortHash,
-                    commitDate,
-                    commitAuthor,
-                    commitEmail,
-                    commitMessage,
-                    branch
-                });
-            } catch (error) {
-                console.error('Error fetching git info:', error);
-                res.status(500).json({ 
-                    error: 'Failed to fetch git information',
-                    message: error instanceof Error ? error.message : 'Unknown error'
-                });
-            }
-        });
-
-
-
-       
-
-        // Serve static files from web directory (after specific routes)
-      //
-
         // 404 handler
         app.use('*', (req, res) => {
             res.status(404).json({ error: 'Route not found' });
