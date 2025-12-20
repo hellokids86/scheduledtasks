@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Version Information</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 700px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 40px;
+            font-size: 1.2em;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #fcc;
+            margin-top: 20px;
+        }
+
+        .version-info {
+            display: none;
+        }
+
+        .version-info.loaded {
+            display: block;
+        }
+
+        .info-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .info-item {
+            margin-bottom: 16px;
+        }
+
+        .info-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #555;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            color: #333;
+            font-size: 1.1em;
+            word-break: break-all;
+        }
+
+        .commit-hash {
+            font-family: 'Courier New', monospace;
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .branch-badge {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 16px;
+            display: inline-block;
+            font-size: 0.9em;
+        }
+
+        .author-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .author-icon {
+            width: 40px;
+            height: 40px;
+            background: #667eea;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .back-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .back-link a:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 24px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔖 Version Information</h1>
+        <p class="subtitle">Current Git Commit Details</p>
+
+        <div id="loading" class="loading">
+            Loading version information...
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="versionInfo" class="version-info">
+            <div class="info-card">
+                <div class="info-item">
+                    <div class="info-label">Branch</div>
+                    <div class="info-value">
+                        <span id="branch" class="branch-badge"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div class="info-item">
+                    <div class="info-label">Commit Hash</div>
+                    <div class="info-value">
+                        <span id="commitHash" class="commit-hash"></span>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Short Hash</div>
+                    <div class="info-value">
+                        <span id="shortHash" class="commit-hash"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div class="info-item">
+                    <div class="info-label">Commit Message</div>
+                    <div class="info-value" id="commitMessage"></div>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div class="info-item">
+                    <div class="info-label">Author</div>
+                    <div class="info-value">
+                        <div class="author-info">
+                            <div class="author-icon" id="authorIcon"></div>
+                            <div>
+                                <div id="commitAuthor" style="font-weight: 600;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Commit Date</div>
+                    <div class="info-value" id="commitDate"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="back-link">
+            <a href="/">← Back to Dashboard</a>
+        </div>
+    </div>
+
+    <script>
+        // Fetch version information from the API
+        async function loadVersionInfo() {
+            try {
+                const response = await fetch('/api/version');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+
+                // Hide loading
+                document.getElementById('loading').style.display = 'none';
+
+                // Show version info
+                const versionInfo = document.getElementById('versionInfo');
+                versionInfo.classList.add('loaded');
+
+                // Populate the data
+                document.getElementById('branch').textContent = data.branch;
+                document.getElementById('commitHash').textContent = data.commitHash;
+                document.getElementById('shortHash').textContent = data.shortHash;
+                document.getElementById('commitMessage').textContent = data.commitMessage;
+                document.getElementById('commitAuthor').textContent = data.commitAuthor;
+                
+                // Format the date
+                const date = new Date(data.commitDate);
+                document.getElementById('commitDate').textContent = date.toLocaleString();
+
+                // Set author icon (first letter of author name)
+                const authorIcon = document.getElementById('authorIcon');
+                authorIcon.textContent = data.commitAuthor.charAt(0).toUpperCase();
+
+            } catch (error) {
+                console.error('Error loading version info:', error);
+                document.getElementById('loading').style.display = 'none';
+                const errorDiv = document.getElementById('error');
+                errorDiv.style.display = 'block';
+                errorDiv.textContent = `Failed to load version information: ${error.message}`;
+            }
+        }
+
+        // Load version info when page loads
+        document.addEventListener('DOMContentLoaded', loadVersionInfo);
+    </script>
+</body>
+</html>
