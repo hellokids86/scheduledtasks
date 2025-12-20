@@ -1,5 +1,5 @@
 {
-  "name": "scheduledtasks",
+  "name": "@hellokids86/scheduledtasks",
   "version": "1.0.13",
   "description": "A TypeScript-based task scheduler with web dashboard and monitoring",
   "main": "dist/index.js",
